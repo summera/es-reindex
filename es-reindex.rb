@@ -3,6 +3,7 @@
 require 'bundler/setup'
 require 'rest-client'
 require 'oj'
+require 'net/http'
 
 VERSION = '0.0.8'
 
@@ -139,9 +140,21 @@ printf "    %u/%u (%.1f%%) done.\r", done, total, 0
 bulk_op = update ? 'index' : 'create'
 
 while true do
-  data = retried_request(:get,
-      "#{surl}/_search/scroll?scroll=10m&scroll_id=#{scroll_id}")
+  # data = retried_request(:get,
+  #     "#{surl}/_search/scroll?scroll=10m&scroll_id=#{scroll_id}")
+
+  uri = URI.parse("#{surl}/_search/scroll?scroll=10m")
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.use_ssl = true
+  data = http.request(Net::HTTP::Get.new(uri.request_uri), scroll_id)
+
+  if data.code != "200"
+    puts "Got #{data.code} response from scroll"
+    exit
+  end
+
   data = Oj.load data
+
   break if data['hits']['hits'].empty?
   scroll_id = data['_scroll_id']
   bulk = ''
